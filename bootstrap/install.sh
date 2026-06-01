@@ -46,11 +46,27 @@ require() {
 }
 
 require PODMAKER_AGENT_URL
-require PODMAKER_AGENT_SHA256
 require PODMAKER_AGENT_ID
 require PODMAKER_GATEWAY_URL
 require PODMAKER_STEP_CA_URL
-require PODMAKER_STEP_CA_FINGERPRINT
+
+# SHA256 + step-ca fingerprint are mandatory in production; dev /
+# bootstrap installs running before a release is published can opt out
+# by setting PODMAKER_AGENT_ALLOW_UNVERIFIED=1.
+if [ -z "${PODMAKER_AGENT_SHA256:-}" ]; then
+    if [ "${PODMAKER_AGENT_ALLOW_UNVERIFIED:-0}" = "1" ]; then
+        log "WARNING: PODMAKER_AGENT_SHA256 empty; skipping checksum verification"
+    else
+        fail "missing env: PODMAKER_AGENT_SHA256 (set PODMAKER_AGENT_ALLOW_UNVERIFIED=1 to bypass for dev)"
+    fi
+fi
+if [ -z "${PODMAKER_STEP_CA_FINGERPRINT:-}" ]; then
+    if [ "${PODMAKER_AGENT_ALLOW_UNVERIFIED:-0}" = "1" ]; then
+        log "WARNING: PODMAKER_STEP_CA_FINGERPRINT empty; enrollment will run against an unverified CA"
+    else
+        fail "missing env: PODMAKER_STEP_CA_FINGERPRINT (set PODMAKER_AGENT_ALLOW_UNVERIFIED=1 to bypass for dev)"
+    fi
+fi
 
 ENROLL_FILE=/var/lib/podmaker/enrollment
 if [ ! -r "$ENROLL_FILE" ]; then
@@ -118,20 +134,23 @@ log "downloading agent from $PODMAKER_AGENT_URL"
 # shellcheck disable=SC2086
 $DOWNLOADER "$PODMAKER_AGENT_URL" > "$TMP_TAR" || fail "agent download failed" 2
 
-if command -v sha256sum >/dev/null 2>&1; then
-    ACTUAL=$(sha256sum "$TMP_TAR" | awk '{print $1}')
-elif command -v shasum >/dev/null 2>&1; then
-    ACTUAL=$(shasum -a 256 "$TMP_TAR" | awk '{print $1}')
+if [ -n "${PODMAKER_AGENT_SHA256:-}" ]; then
+    if command -v sha256sum >/dev/null 2>&1; then
+        ACTUAL=$(sha256sum "$TMP_TAR" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        ACTUAL=$(shasum -a 256 "$TMP_TAR" | awk '{print $1}')
+    else
+        fail "no sha256 tool (sha256sum / shasum) available" 2
+    fi
+    EXPECTED=$(printf '%s' "$PODMAKER_AGENT_SHA256" | tr 'A-F' 'a-f')
+    ACTUAL=$(printf '%s' "$ACTUAL" | tr 'A-F' 'a-f')
+    if [ "$ACTUAL" != "$EXPECTED" ]; then
+        fail "checksum mismatch: expected $EXPECTED got $ACTUAL" 2
+    fi
+    log "checksum OK"
 else
-    fail "no sha256 tool (sha256sum / shasum) available" 2
+    log "WARNING: skipping checksum (PODMAKER_AGENT_ALLOW_UNVERIFIED=1)"
 fi
-EXPECTED=$(printf '%s' "$PODMAKER_AGENT_SHA256" | tr 'A-F' 'a-f')
-ACTUAL=$(printf '%s' "$ACTUAL" | tr 'A-F' 'a-f')
-
-if [ "$ACTUAL" != "$EXPECTED" ]; then
-    fail "checksum mismatch: expected $EXPECTED got $ACTUAL" 2
-fi
-log "checksum OK"
 
 if ! tar -xzf "$TMP_TAR" -C "$INSTALL_DIR"; then
     fail "extract failed" 2
