@@ -1,0 +1,37 @@
+# Refresh the fronting proxy's bridge CA + per-workspace CRL bundle
+# from the control plane. Pairs with bridge-ca-refresh.timer (next
+# door) for the once-a-day schedule.
+#
+# Install:
+#   sudo install -m 0644 bridge-ca-refresh.{service,timer} /etc/systemd/system/
+#   sudo install -m 0755 bridge-ca-refresh.sh /usr/local/sbin/
+#   sudo install -d -o root -g root -m 0755 /etc/nginx/bridge-mtls
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now bridge-ca-refresh.timer
+
+[Unit]
+Description=Refresh PodMaker Bridge CA + CRL bundle for the fronting proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/bridge-ca-refresh.sh
+
+# Hardening — script only writes inside /etc/nginx/bridge-mtls
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/etc/nginx/bridge-mtls /etc/caddy/bridge-mtls
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

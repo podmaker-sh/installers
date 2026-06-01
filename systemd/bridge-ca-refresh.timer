@@ -1,0 +1,13 @@
+[Unit]
+Description=Hourly refresh of the Bridge CA + CRL bundle
+Documentation=https://podmaker.sh/docs/vault-bridge
+
+[Timer]
+# Once an hour at :07 so a fleet of proxies doesn't hammer the
+# CP synchronously at the top of the hour.
+OnCalendar=*-*-* *:07:00
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

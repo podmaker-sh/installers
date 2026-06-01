@@ -1,0 +1,61 @@
+# PodMaker vault-bridge agent — systemd unit.
+#
+# Install:
+#   sudo install -m 0644 podmaker-vault-bridge.service /etc/systemd/system/
+#   sudo install -d -o bridge -g bridge -m 0700 /var/lib/podmaker-bridge
+#   sudo install -m 0600 -o bridge -g bridge bridge.env /etc/podmaker-vault-bridge.env
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now podmaker-vault-bridge
+#
+# bridge.env shape:
+#   PODMAKER_BRIDGE_ID=01ksz...
+#   PODMAKER_BRIDGE_TOKEN=pdmb_xxxxxxxxxxxxxxxx
+#   PODMAKER_CP_URL=https://app.podmaker.sh
+#   PODMAKER_UPSTREAM_TYPE=aws-sm
+#   PODMAKER_UPSTREAM_REGION=eu-west-1
+#   # ...upstream-specific vars
+#
+# Cert bundle persists under /var/lib/podmaker-bridge so restarts
+# do not re-provision a fresh leaf on every boot.
+
+[Unit]
+Description=PodMaker Vault Bridge agent
+Documentation=https://podmaker.sh/docs/vault-bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bridge
+Group=bridge
+EnvironmentFile=/etc/podmaker-vault-bridge.env
+Environment=PODMAKER_BRIDGE_CERT_DIR=/var/lib/podmaker-bridge
+ExecStart=/usr/local/bin/podmaker-vault-bridge
+Restart=always
+RestartSec=5s
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/podmaker-bridge
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Metrics port — bind to loopback by default; flip to 0.0.0.0:7768
+# in the env file when running behind a reverse proxy.
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

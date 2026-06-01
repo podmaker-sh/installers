@@ -1,0 +1,16 @@
+[Unit]
+Description=HostingManager panel stack
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/podmaker
+EnvironmentFile=/opt/podmaker/.env
+ExecStartPre=-/usr/bin/docker network create hostingmgr_proxy
+ExecStart=/usr/bin/docker compose -f /opt/podmaker/deploy/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/podmaker/deploy/docker-compose.yml down
+
+[Install]
+WantedBy=multi-user.target

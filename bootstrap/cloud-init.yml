@@ -1,0 +1,49 @@
+## Cloud-init payload emitted by the cloud provider adapters
+## (Hetzner / DigitalOcean / AWS) when they provision a server.
+##
+## Two write_files entries land first:
+##   - /var/lib/podmaker/enrollment with the one-time enrollment
+##     token (mode 0600);
+##   - /var/lib/podmaker/install.sh containing the bootstrap script
+##     (mode 0755) — the orchestrator copies the canonical version of
+##     scripts/bootstrap/install.sh in here when rendering the user-
+##     data payload.
+##
+## The runcmd block then executes the installer with the environment
+## the agent needs to enrol against step-ca and the regional gateway.
+##
+## Placeholders the orchestrator substitutes at render time:
+##   {{AGENT_ID}}            — control-plane minted server identifier
+##   {{AGENT_URL}}            — HTTPS URL of the signed agent tarball
+##   {{AGENT_SHA256}}         — hex SHA-256 of the tarball
+##   {{GATEWAY_URL}}          — wss://gateway.<region>.podmaker.io/v1/agent
+##   {{STEP_CA_URL}}          — https://step-ca.<region>.podmaker.io
+##   {{STEP_CA_FINGERPRINT}}  — sha256:<base64> of the step-ca root
+##   {{ENROLLMENT_TOKEN}}     — one-time JWT issued by step-ca
+
+#cloud-config
+write_files:
+  - path: /var/lib/podmaker/enrollment
+    permissions: '0600'
+    content: |
+      PODMAKER_ENROLLMENT_TOKEN={{ENROLLMENT_TOKEN}}
+  - path: /var/lib/podmaker/install.sh
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # … contents of scripts/bootstrap/install.sh are inlined here at
+      # render time. The orchestrator reads the file from the
+      # packaged release rather than downloading at boot so the
+      # install script itself never depends on the public internet
+      # being reachable from the new VM.
+
+runcmd:
+  - mkdir -p /etc/podmaker /var/lib/podmaker /var/log/podmaker
+  - chmod 0700 /etc/podmaker /var/lib/podmaker
+  - PODMAKER_AGENT_URL={{AGENT_URL}}
+    PODMAKER_AGENT_SHA256={{AGENT_SHA256}}
+    PODMAKER_AGENT_ID={{AGENT_ID}}
+    PODMAKER_GATEWAY_URL={{GATEWAY_URL}}
+    PODMAKER_STEP_CA_URL={{STEP_CA_URL}}
+    PODMAKER_STEP_CA_FINGERPRINT={{STEP_CA_FINGERPRINT}}
+    sh /var/lib/podmaker/install.sh

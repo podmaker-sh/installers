@@ -1,0 +1,33 @@
+[Unit]
+Description=PodMaker per-server agent
+Documentation=https://podmaker.io/docs/agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/podmaker/agent/agent.env
+ExecStart=/usr/local/bin/podmaker-agent run
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+
+# Sandboxing.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+
+# Paths the agent must write to.
+ReadWritePaths=/etc/podmaker /var/lib/podmaker /var/log/podmaker
+
+[Install]
+WantedBy=multi-user.target

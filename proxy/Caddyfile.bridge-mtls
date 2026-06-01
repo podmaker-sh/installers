@@ -1,0 +1,49 @@
+# Hostmaker control plane — Vault Bridge mTLS termination template
+# for Caddy v2. Caddy ships with automatic Let's Encrypt certs +
+# native CRL polling, so this file is smaller than the Nginx
+# equivalent.
+#
+# Pre-req: download the bridge CA bundle at boot. systemd unit
+# example at deploy/systemd/bridge-ca-refresh.service handles the
+# periodic refresh.
+#
+#     curl -fsSL https://app.hostmaker.com/api/v1/vault-bridges/ca.pem \
+#          -o /etc/caddy/bridge-mtls/ca.pem
+
+{
+    # Adjust to your runtime: hostmaker control plane is reachable
+    # at this internal port behind Caddy.
+    debug
+}
+
+app.hostmaker.com {
+    # ---------------------------------------------------------------
+    # Bridge agent API — mTLS required.
+    # ---------------------------------------------------------------
+    @bridgeAgent path_regexp bridgeAgent ^/api/v1/vault-bridges/[^/]+/(cert|poll|respond|heartbeat|update-report)$
+    handle @bridgeAgent {
+        tls {
+            client_auth {
+                mode            require_and_verify
+                trusted_ca_cert_file /etc/caddy/bridge-mtls/ca.pem
+            }
+        }
+        reverse_proxy 127.0.0.1:8000 {
+            # Caddy stamps these placeholders only when the
+            # handshake actually presented a client cert.
+            header_up X-SSL-Client-Verify {http.request.tls.client.subject}
+            header_up X-SSL-Client-Cert   {http.request.tls.client.certificate_pem}
+            header_up X-SSL-Client-S-DN   {http.request.tls.client.subject}
+        }
+    }
+
+    # Public mTLS surface: CA + CRL + OCSP. No client cert.
+    handle /api/v1/vault-bridges/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    # Everything else — normal SaaS traffic.
+    handle {
+        reverse_proxy 127.0.0.1:8000
+    }
+}

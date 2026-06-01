@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX v4 installer for the podmaker-vault-bridge agent.
+
+  Build (Windows host with `dotnet tool install -g wix`):
+
+      wix build Product.wxs ^
+          -arch x64 ^
+          -d Version=0.1.0 ^
+          -d SourceBinary=..\..\..\bin\release\podmaker-vault-bridge-windows-amd64.exe ^
+          -o podmaker-vault-bridge-0.1.0-x64.msi
+
+  Install (silent):
+
+      msiexec /i podmaker-vault-bridge-0.1.0-x64.msi /qn ^
+              BRIDGE_ID=01ksz... BRIDGE_TOKEN=pdmb_... ^
+              CP_URL=https://app.podmaker.sh ^
+              UPSTREAM_TYPE=aws-sm UPSTREAM_REGION=eu-west-1
+
+  Drops the binary at:
+      %ProgramFiles%\PodMaker\VaultBridge\podmaker-vault-bridge.exe
+
+  Creates the Windows service `PodMakerVaultBridge` running as
+  LocalSystem and starts it. Uses native ServiceInstall / ServiceControl
+  — no NSSM dependency. Env vars are seeded under the service's
+  HKLM\SYSTEM\CurrentControlSet\Services\<name>\Environment key.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package
+        Name="PodMaker Vault Bridge"
+        Manufacturer="PodMaker"
+        Version="$(Version)"
+        UpgradeCode="2c2b0a4a-2b13-4f3a-9c5a-1f5b1a8e2c30"
+        Scope="perMachine">
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- Properties (msiexec /i ... PROPNAME=value) -->
+        <Property Id="BRIDGE_ID"       Secure="yes" />
+        <Property Id="BRIDGE_TOKEN"    Secure="yes" />
+        <Property Id="CP_URL"          Secure="yes" Value="https://app.podmaker.sh" />
+        <Property Id="UPSTREAM_TYPE"   Secure="yes" Value="aws-sm" />
+        <Property Id="UPSTREAM_REGION" Secure="yes" />
+        <Property Id="UPSTREAM_ENDPOINT" Secure="yes" />
+        <Property Id="UPSTREAM_TOKEN"    Secure="yes" />
+
+        <Feature Id="Main" Title="Vault Bridge Agent" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+        </Feature>
+
+        <StandardDirectory Id="ProgramFiles64Folder">
+            <Directory Id="HMRoot" Name="PodMaker">
+                <Directory Id="INSTALLFOLDER" Name="VaultBridge" />
+            </Directory>
+        </StandardDirectory>
+
+        <StandardDirectory Id="CommonAppDataFolder">
+            <Directory Id="HMData" Name="PodMaker">
+                <Directory Id="HMDataBridge" Name="VaultBridge" />
+            </Directory>
+        </StandardDirectory>
+
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="BridgeBinary" Bitness="always64">
+                <File Id="BridgeExe"
+                      Source="$(SourceBinary)"
+                      Name="podmaker-vault-bridge.exe"
+                      KeyPath="yes" />
+
+                <!-- Install + control the Windows service in one shot. -->
+                <ServiceInstall Id="BridgeSvcInstall"
+                                Type="ownProcess"
+                                Vital="yes"
+                                Name="PodMakerVaultBridge"
+                                DisplayName="PodMaker Vault Bridge"
+                                Description="Outbound proxy from this network to the PodMaker control plane."
+                                Start="auto"
+                                Account="LocalSystem"
+                                ErrorControl="normal">
+                    <ServiceConfig
+                        FirstFailureActionType="restart"
+                        SecondFailureActionType="restart"
+                        ThirdFailureActionType="restart"
+                        RestartServiceDelayInSeconds="5"
+                        ResetPeriodInDays="1" />
+                </ServiceInstall>
+
+                <ServiceControl Id="BridgeSvcCtl"
+                                Name="PodMakerVaultBridge"
+                                Start="install"
+                                Stop="both"
+                                Remove="uninstall"
+                                Wait="yes" />
+
+                <!-- Env vars consumed by the service. Stored on the
+                     service's own Environment key so the values are
+                     visible only to the LocalSystem account that
+                     runs the agent. -->
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_BRIDGE_ID"
+                               Type="string" Value="[BRIDGE_ID]" />
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_BRIDGE_TOKEN"
+                               Type="string" Value="[BRIDGE_TOKEN]" />
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_CP_URL"
+                               Type="string" Value="[CP_URL]" />
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_UPSTREAM_TYPE"
+                               Type="string" Value="[UPSTREAM_TYPE]" />
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_UPSTREAM_REGION"
+                               Type="string" Value="[UPSTREAM_REGION]" />
+                <RegistryValue Root="HKLM" KeyPath="no"
+                               Key="SYSTEM\CurrentControlSet\Services\PodMakerVaultBridge\Environment"
+                               Name="PODMAKER_BRIDGE_CERT_DIR"
+                               Type="string" Value="[CommonAppDataFolder]PodMaker\VaultBridge" />
+            </Component>
+        </ComponentGroup>
+    </Package>
+</Wix>

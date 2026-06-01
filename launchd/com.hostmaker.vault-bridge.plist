@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PodMaker vault-bridge agent — macOS launchd unit.
+
+  Install per-user (recommended — picks up aws-vault Keychain creds):
+
+    cp com.podmaker.vault-bridge.plist ~/Library/LaunchAgents/
+    # edit the plist below to set env vars
+    launchctl load -w ~/Library/LaunchAgents/com.podmaker.vault-bridge.plist
+
+  Or system-wide (daemon, no Keychain access):
+
+    sudo cp com.podmaker.vault-bridge.plist /Library/LaunchDaemons/
+    sudo launchctl load -w /Library/LaunchDaemons/com.podmaker.vault-bridge.plist
+
+  aws-vault needs an interactive Keychain prompt the first time it
+  unlocks a profile, so the per-user LaunchAgent variant is the
+  only one that works with `aws-vault exec` out of the box.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.podmaker.vault-bridge</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/podmaker-vault-bridge</string>
+    </array>
+
+    <!--
+      To run inside aws-vault for automatic STS refresh, replace
+      ProgramArguments above with:
+
+        <array>
+            <string>/opt/homebrew/bin/aws-vault</string>
+            <string>exec</string>
+            <string>YOUR_PROFILE</string>
+            <string>--</string>
+            <string>/usr/local/bin/podmaker-vault-bridge</string>
+        </array>
+
+      For non-interactive profiles only (no MFA prompt).
+    -->
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PODMAKER_BRIDGE_ID</key>
+        <string>REPLACE_BRIDGE_ID</string>
+        <key>PODMAKER_BRIDGE_TOKEN</key>
+        <string>REPLACE_BEARER_TOKEN</string>
+        <key>PODMAKER_CP_URL</key>
+        <string>https://app.podmaker.sh</string>
+        <key>PODMAKER_UPSTREAM_TYPE</key>
+        <string>aws-sm</string>
+        <key>PODMAKER_UPSTREAM_REGION</key>
+        <string>eu-west-1</string>
+        <key>PODMAKER_BRIDGE_CERT_DIR</key>
+        <string>/Users/USERNAME/.podmaker-bridge</string>
+        <key>PODMAKER_BRIDGE_METRICS_ADDR</key>
+        <string>127.0.0.1:7768</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/podmaker-vault-bridge.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/podmaker-vault-bridge.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/tmp</string>
+
+    <!-- Run as Unspecified -> inherits the loading user. Set User+
+         Group when copying into /Library/LaunchDaemons. -->
+</dict>
+</plist>
