@@ -156,11 +156,24 @@ if ! tar -xzf "$TMP_TAR" -C "$INSTALL_DIR"; then
     fail "extract failed" 2
 fi
 
-if [ ! -x "$INSTALL_DIR/podmaker-agent" ]; then
-    fail "tarball missing podmaker-agent binary" 2
+# Tarball ships the binary as either `podmaker-agent` or the
+# arch-suffixed name (`podmaker-agent-linux-amd64`) depending on the
+# Makefile target — accept both and normalise to the canonical name.
+SRC_BIN=""
+for cand in \
+    "$INSTALL_DIR/podmaker-agent" \
+    "$INSTALL_DIR/podmaker-agent-linux-$AGENT_ARCH" \
+; do
+    if [ -x "$cand" ]; then
+        SRC_BIN="$cand"
+        break
+    fi
+done
+if [ -z "$SRC_BIN" ]; then
+    fail "tarball missing podmaker-agent binary (looked for podmaker-agent, podmaker-agent-linux-$AGENT_ARCH)" 2
 fi
 
-install -m 0755 "$INSTALL_DIR/podmaker-agent" "$BIN_PATH"
+install -m 0755 "$SRC_BIN" "$BIN_PATH"
 
 # ---------------------------------------------------------------------------
 # Phase 4: write environment file consumed by the init script.
