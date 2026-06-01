@@ -16,8 +16,8 @@
 ##   {{AGENT_ID}}            — control-plane minted server identifier
 ##   {{AGENT_URL}}            — HTTPS URL of the signed agent tarball
 ##   {{AGENT_SHA256}}         — hex SHA-256 of the tarball
-##   {{GATEWAY_URL}}          — wss://gateway.<region>.podmaker.io/v1/agent
-##   {{STEP_CA_URL}}          — https://step-ca.<region>.podmaker.io
+##   {{GATEWAY_URL}}          — wss://gateway.<region>.podmaker.sh/v1/agent
+##   {{STEP_CA_URL}}          — https://step-ca.<region>.podmaker.sh
 ##   {{STEP_CA_FINGERPRINT}}  — sha256:<base64> of the step-ca root
 ##   {{ENROLLMENT_TOKEN}}     — one-time JWT issued by step-ca
 

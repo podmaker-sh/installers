@@ -4,7 +4,7 @@
 # Designed to be invoked by cloud-init (Hetzner / DigitalOcean / AWS
 # user-data) or piped from curl during BYO-SSH adoption:
 #
-#   curl -fsSL https://install.podmaker.io/agent.sh \
+#   curl -fsSL https://install.podmaker.sh/agent.sh \
 #     | PODMAKER_AGENT_URL=… PODMAKER_AGENT_ID=… sh
 #
 # Required environment:

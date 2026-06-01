@@ -7,16 +7,16 @@
 # example at deploy/systemd/bridge-ca-refresh.service handles the
 # periodic refresh.
 #
-#     curl -fsSL https://app.hostmaker.com/api/v1/vault-bridges/ca.pem \
+#     curl -fsSL https://app.podmaker.com/api/v1/vault-bridges/ca.pem \
 #          -o /etc/caddy/bridge-mtls/ca.pem
 
 {
-    # Adjust to your runtime: hostmaker control plane is reachable
+    # Adjust to your runtime: podmaker control plane is reachable
     # at this internal port behind Caddy.
     debug
 }
 
-app.hostmaker.com {
+app.podmaker.com {
     # ---------------------------------------------------------------
     # Bridge agent API — mTLS required.
     # ---------------------------------------------------------------

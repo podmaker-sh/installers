@@ -1,6 +1,6 @@
 [Unit]
 Description=PodMaker per-server agent
-Documentation=https://podmaker.io/docs/agent
+Documentation=https://podmaker.sh/docs/agent
 After=network-online.target
 Wants=network-online.target
 

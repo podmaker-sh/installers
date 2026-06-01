@@ -19,7 +19,7 @@ or by curl-piping `install.sh` during BYO-SSH adoption.
 | `PODMAKER_AGENT_URL` | HTTPS URL of the agent release tarball |
 | `PODMAKER_AGENT_SHA256` | Hex SHA-256 of the tarball |
 | `PODMAKER_AGENT_ID` | Control-plane-minted server identifier |
-| `PODMAKER_GATEWAY_URL` | `wss://gateway.<region>.podmaker.io/v1/agent` |
+| `PODMAKER_GATEWAY_URL` | `wss://gateway.<region>.podmaker.sh/v1/agent` |
 | `PODMAKER_STEP_CA_URL` | step-ca base URL |
 | `PODMAKER_STEP_CA_FINGERPRINT` | `sha256:<base64>` of the step-ca root |
 
