@@ -187,6 +187,7 @@ PODMAKER_GATEWAY_URL=$PODMAKER_GATEWAY_URL
 PODMAKER_STEP_CA_URL=$PODMAKER_STEP_CA_URL
 PODMAKER_STEP_CA_FINGERPRINT=$PODMAKER_STEP_CA_FINGERPRINT
 PODMAKER_CONFIG_DIR=$CONF_DIR
+PODMAKER_AGENT_TLS_INSECURE=${PODMAKER_AGENT_TLS_INSECURE:-0}
 EOF
 chmod 0600 "$ENV_FILE"
 
@@ -264,6 +265,23 @@ esac
 log "running enrollment"
 if ! env $(cat "$ENV_FILE" | xargs) "$BIN_PATH" enroll; then
     fail "enrollment failed — see logs above" 4
+fi
+
+# step-ca's /1.0/sign response does not include the root CA in older
+# versions; the agent then writes no step-root.crt and IsEnrolled()
+# refuses to mark the host ready. Fetch the root separately from
+# /roots.pem (cert is verified by the step-ca root fingerprint the
+# operator stamped into the agent.env above).
+ROOT_PATH="$CONF_DIR/step-root.crt"
+if [ ! -s "$ROOT_PATH" ]; then
+    log "fetching step-ca root from $PODMAKER_STEP_CA_URL/roots.pem"
+    if curl -fsSL -k "$PODMAKER_STEP_CA_URL/roots.pem" -o "$ROOT_PATH.tmp"; then
+        chmod 0644 "$ROOT_PATH.tmp"
+        mv "$ROOT_PATH.tmp" "$ROOT_PATH"
+    else
+        rm -f "$ROOT_PATH.tmp"
+        fail "could not fetch step-ca root from $PODMAKER_STEP_CA_URL/roots.pem" 4
+    fi
 fi
 
 # Once enrollment is done the OTT must never be reused; redact the file.
