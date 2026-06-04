@@ -191,6 +191,10 @@ runcmd:
   # password. Default cloud-init sudoers drops the SETENV tag, so
   # the bootstrap installer fails at first run.
   - "printf 'ubuntu ALL=(ALL) NOPASSWD: SETENV: ALL\\n' > /etc/sudoers.d/90-podmaker-setenv && chmod 0440 /etc/sudoers.d/90-podmaker-setenv"
+  # Orchestrator-side sudoers: lets the orchestrator's SSH user run
+  # docker / rsync passwordless for cutover restarts (see
+  # apps/orchestrator/internal/selfdeploy/actions/ssh_opts.go).
+  - "printf 'ubuntu ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/rsync, /usr/local/bin/docker, /usr/local/bin/podmaker-restart\\n' > /etc/sudoers.d/91-podmaker-orchestrator && chmod 0440 /etc/sudoers.d/91-podmaker-orchestrator"
   - install -d -m 0755 /opt/podmaker-src /opt/podmaker
   - touch /var/run/podmaker-ready
 CLOUD_INIT

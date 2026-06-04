@@ -400,6 +400,18 @@ if [ -n "${PODMAKER_GHCR_TOKEN:-}" ] && [ -n "${PODMAKER_GHCR_USERNAME:-}" ]; th
         docker login ghcr.io -u "$PODMAKER_GHCR_USERNAME" --password-stdin
 fi
 
+# DOCR (DigitalOcean Container Registry) auth — terraform writes the
+# auth config to /root/.docker/config.json via cloud-init when
+# var.enable_managed_registry is on. We also accept PODMAKER_DOCR_AUTH_B64
+# at install time so an operator running install-podmaker.sh directly
+# (not via cloud-init) gets the same path.
+if [ -n "${PODMAKER_DOCR_AUTH_B64:-}" ]; then
+    log "writing DOCR auth config from PODMAKER_DOCR_AUTH_B64"
+    install -d -m 0700 /root/.docker
+    printf '%s' "$PODMAKER_DOCR_AUTH_B64" | base64 -d > /root/.docker/config.json
+    chmod 0600 /root/.docker/config.json
+fi
+
 log "starting containers"
 cd "$PREFIX"
 PODMAKER_RELEASE="$RELEASE" docker compose pull

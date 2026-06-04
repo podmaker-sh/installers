@@ -261,7 +261,20 @@ if [ -z "$INSTANCE_ID" ]; then
         --query 'Parameter.Value' --output text)
     [ -n "$AMI_ID" ] && [ "$AMI_ID" != "None" ] || die "AMI resolve failed"
 
-    USER_DATA=$(cat <<'CLOUD_INIT'
+    # Optional: orchestrator's SSH pubkey for passwordless inbound
+    # access (used by RestartStatelessFleet / MigrateTemporal /
+    # MigrateNats / MigrateStepCa). Set PODMAKER_ORCH_SSH_PUBKEY to
+    # an `ssh-ed25519 …` string before running this script.
+    ORCH_PUBKEY="${PODMAKER_ORCH_SSH_PUBKEY:-}"
+    ORCH_AUTHORIZED_LINE=""
+    if [ -n "$ORCH_PUBKEY" ]; then
+        ORCH_AUTHORIZED_LINE="  - \"install -m 0700 -o ubuntu -g ubuntu -d /home/ubuntu/.ssh\""
+        ORCH_AUTHORIZED_LINE+=$'\n'"  - \"printf '%s\\\\n' '$ORCH_PUBKEY' >> /home/ubuntu/.ssh/authorized_keys\""
+        ORCH_AUTHORIZED_LINE+=$'\n'"  - \"chmod 0600 /home/ubuntu/.ssh/authorized_keys\""
+        ORCH_AUTHORIZED_LINE+=$'\n'"  - \"chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys\""
+    fi
+
+    USER_DATA=$(cat <<CLOUD_INIT
 #cloud-config
 package_update: true
 packages:
@@ -272,9 +285,11 @@ runcmd:
   - "curl -fsSL https://get.docker.com | sh"
   - "systemctl enable --now docker"
   - "usermod -aG docker ubuntu"
-  - "printf 'ubuntu ALL=(ALL) NOPASSWD: SETENV: ALL\\n' > /etc/sudoers.d/90-podmaker-setenv"
-  - "chmod 0440 /etc/sudoers.d/90-podmaker-setenv"
+  - "printf 'ubuntu ALL=(ALL) NOPASSWD: SETENV: ALL\\\\n' > /etc/sudoers.d/90-podmaker-setenv"
+  - "printf 'ubuntu ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/rsync, /usr/local/bin/docker, /usr/local/bin/podmaker-restart\\\\n' > /etc/sudoers.d/91-podmaker-orchestrator"
+  - "chmod 0440 /etc/sudoers.d/90-podmaker-setenv /etc/sudoers.d/91-podmaker-orchestrator"
   - "install -d -m 0755 /opt/podmaker-src /opt/podmaker"
+${ORCH_AUTHORIZED_LINE}
   - "touch /var/run/podmaker-ready"
 CLOUD_INIT
 )
